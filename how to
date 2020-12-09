@@ -1,0 +1,41 @@
+https://superuser.com/questions/1146686/move-all-files-within-subfolders-to-parent-folder
+
+Okay, I finally figured it out by adapting code from yet another question. Thanks to @AFH for clarifying the parts I was unsure about in the comments to this answer, and for his general help with it - it's much appreciated.
+
+To Extract All Files from Subfolders to their Parent Folder
+for /r "PARENTFOLDER" %d in (*.*) do move "%d" "PARENTFOLDER"
+
+Remember to replace all instances of PARENTFOLDER with the path to the folder that you want to extract the files to.
+
+To Extract All Files from Subfolders and Delete Empty Subfolders
+It's unlikely you'll need to keep the empty subfolders left over after extracting the files from them - I certainly didn't - so the below command automates the deletion of them, too.
+
+for /r "PARENTFOLDER" %d in (*.*) do move "%d" "PARENTFOLDER" && cd "PARENTFOLDER" && for /f "delims=" %d in ('dir /s /b /ad ^| sort /r') do rd "%d"
+
+Once again, replace all instances of PARENTFOLDER with the path to the folder that you want to extract the files to.
+
+By this point, however, it's no longer a one-liner, and starts to get a bit convoluted when pasted into the command line, so it's easier to just put the whole thing in a batch file. Using variables for the path to the parent folder allows you to replace just the one instance of PARENTFOLDER at the beginning of the file, and it's also the safer option, preventing against any accidental deletion of empty folders that you might want to keep.
+
+The Batch File
+Paste into a text file, replace PARENTFOLDER with the path to the folder you want it to work with, and save it with the .bat extension. Run in any directory.
+
+@ECHO OFF
+SETLOCAL
+SET parent="PARENTFOLDER"
+CD /d %parent% 
+FOR /r %parent% %%d IN (*.*) DO MOVE "%%d" %parent% 
+FOR /f "delims=" %%d IN ('DIR /a:d /s /b ^| SORT /r') DO RD "%%d"
+ECHO Done. Press any key to terminate script.
+PAUSE >NUL
+
+
+The for command syntax is not rational, but the first %d defines d as the loop variable, and the second %d is what the loop variable expands to on each pass of the loop (Unix syntax is more rational: for ... d in ... do ...). The first instance is not expanded, so it does not need quoting, unlike after the do, where %d may expand to file names with embedded blanks. There is nothing special about d: any single letter could be used, but d is logical for directories (or f for files). Even more irrationally, %%d must be used in a batch (.cmd or .bat) file.
+
+Without testing, I think you want a nested for, along the lines of for /d %d in (PARENTFOLDER\*) do for /r "%d" %f in (*.*) do move "%f" TARGETLOCATION. If you include the extra requirements into your question, I'll submit an answer, for the benefit of others
+
+If PARENTFOLDER contains blanks, it will need to be quoted. I suggest you put an echo between the first do and the second for, to check exactly what nested for command would be executed. Your conditions have so many possible variants that I can't set up a representative test here.
+
+If you don't quote PARENTFOLDER and it's something like name with spaces, the first for will evaluate as for /d %d in (name with spaces\*) do ..., so d will become successively name, with, then any files matching the mask spaces\*. Parentheses do not stop the requirement to quote. The only time you needn't quote is with the cd command, which takes the rest of the line as a single parameter, including any spaces (though Tab expansion inserts quotes); md and rd can act on multiple directories, so need quotes if the names have spaces.
+
+
+
